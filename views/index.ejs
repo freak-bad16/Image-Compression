@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Image Compression (DWT)</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 40px auto;
+      background: #ffffff;
+      padding: 32px;
+      border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+    }
+
+    h1 {
+      text-align: center;
+      color: #333;
+      margin-bottom: 40px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 24px;
+    }
+
+    .card {
+      flex: 1 1 100%;
+      background: #f9fafb;
+      border: 2px solid #007bff;
+      border-radius: 8px;
+      padding: 20px;
+    }
+
+    .card h2 {
+      margin-top: 0;
+      color: #007bff;
+      margin-bottom: 16px;
+      font-size: 20px;
+    }
+
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 600;
+    }
+
+    input[type="file"] {
+      width: 100%;
+      padding: 8px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    input[type="checkbox"] {
+      margin-right: 8px;
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      font-size: 16px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s ease;
+    }
+
+    button:hover {
+      background: #0056b3;
+    }
+
+    .stats {
+      font-size: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .images {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: 30px;
+      gap: 24px;
+    }
+
+    .image-container {
+      flex: 1 1 45%;
+      text-align: center;
+    }
+
+    .image-container img {
+      max-width: 100%;
+      max-height: 300px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      transition: transform 0.2s ease;
+      cursor: pointer;
+    }
+
+    .image-container img:hover {
+      transform: scale(1.03);
+    }
+
+    .image-container h3 {
+      margin: 12px 0 8px;
+    }
+
+    .error {
+      color: red;
+      text-align: center;
+      margin-top: 20px;
+    }
+
+    #imageModal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      justify-content: center;
+      align-items: center;
+      z-index: 9999;
+    }
+
+    #imageModal img {
+      max-width: 90%;
+      max-height: 90%;
+      border: 4px solid white;
+      border-radius: 8px;
+    }
+
+    #imageModal span {
+      position: absolute;
+      top: 20px;
+      right: 30px;
+      font-size: 36px;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .footer {
+      text-align: center;
+      padding: 16px;
+      margin-top: auto;
+      font-size: 14px;
+      color: #555;
+    }
+
+    .footer a {
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    @media (max-width: 768px) {
+      .card {
+        flex: 1 1 100%;
+      }
+
+      .image-container {
+        flex: 1 1 100%;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <h1>Image Compression using DWT (Haar)</h1>
+    <div class="row">
+      <!-- Input Section -->
+      <div class="card">
+        <h2>Input</h2>
+        <form action="/compress" method="POST" enctype="multipart/form-data">
+          <div class="form-group">
+            <label for="image">Select Image:</label>
+            <input type="file" id="image" name="image" accept="image/png, image/jpeg" required>
+          </div>
+          <div class="form-group">
+            <label><input type="checkbox" name="aggressive"> Aggressive Compression</label>
+          </div>
+          <button type="submit">Compress Image</button>
+        </form>
+      </div>
+      <% if (result) { %>
+        <!-- Output Section -->
+        <div class="card">
+          <h2>Output</h2>
+          <div class="stats">
+            <div><strong>Original Size:</strong>
+              <%= (result.original_size / 1024).toFixed(2) %> KB
+            </div>
+            <div><strong>Color Compressed Size:</strong>
+              <%= (result.color.compressed_size / 1024).toFixed(2) %> KB
+            </div>
+            <div><strong>Color Compression Ratio:</strong>
+              <%= result.color.compression_ratio %>
+            </div>
+            <div><strong>Grayscale Compressed Size:</strong>
+              <%= (result.grayscale.compressed_size / 1024).toFixed(2) %> KB
+            </div>
+            <div><strong>Grayscale Compression Ratio:</strong>
+              <%= result.grayscale.compression_ratio %>
+            </div>
+          </div>
+        </div>
+    </div>
+    <!-- Image Display -->
+    <div class="images">
+      <div class="images">
+        <div class="image-container">
+          <h3>Original (Color)</h3>
+          <img src="<%= result.original_image %>" alt="Original Color">
+        </div>
+        <div class="image-container">
+          <h3>Compressed (Color)</h3>
+          <img src="<%= result.color.image %>" alt="Compressed Color">
+        </div>
+        <div class="image-container">
+          <h3>Compressed (Grayscale)</h3>
+          <img src="<%= result.grayscale.image %>" alt="Compressed Grayscale">
+        </div>
+      </div>
+    </div>
+    <% } %>
+      <% if (error) { %>
+        <div class="error">
+          <%= error %>
+        </div>
+        <% } %>
+  </div>
+  <!-- Modal for image zoom -->
+  <div id="imageModal">
+    <span onclick="closeModal()">&times;</span>
+    <img id="modalImage">
+  </div>
+  <!-- Footer -->
+  <div class="footer">
+    This project is made by <strong>Sumit Kumar Jha</strong> on Image Processing using DWT (Haar).<br>
+    Connect with me on <a href="https://www.linkedin.com/in/sumit-kumar-jha/" target="_blank">LinkedIn</a>
+  </div>
+  <script>
+    function openModal(src) {
+      const modal = document.getElementById('imageModal');
+      const modalImg = document.getElementById('modalImage');
+      modal.style.display = 'flex';
+      modalImg.src = src;
+    }
+    function closeModal() {
+      document.getElementById('imageModal').style.display = 'none';
+    }
+    window.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.image-container img').forEach(img => {
+        img.addEventListener('click', () => openModal(img.src));
+      });
+      document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closeModal();
+      });
+    });
+  </script>
+</body>
+
+</html>

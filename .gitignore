@@ -1,0 +1,12 @@
+# Ignore node_modules
+node_modules/
+
+# Ignore Python cache files
+__pycache__/
+
+# Ignore OS and temp files
+.DS_Store
+Thumbs.db
+
+# Ignore upload results (optional)
+uploads/

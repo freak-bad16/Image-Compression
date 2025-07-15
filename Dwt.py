@@ -2,46 +2,72 @@ import cv2 as cv
 import pywt
 import numpy as np
 import os
+import sys
+import json
+import argparse
 
-wavelet = 'haar'
-threshold = 0.05  
-path = input("Do you want to give the path of any image? If no, just press Enter: ")
-image_path = r"C:\Users\sumit\OneDrive\Desktop\internship\image compression\image.png" if path == "" else path
-user_input = input("Do you want aggressive compression? (yes/no): ").strip().lower()
-isAgrasive = user_input in ["yes", "y"]
+def parse_args():
+    parser = argparse.ArgumentParser(description='DWT Color + Grayscale Compression')
+    parser.add_argument('--image', type=str, required=True)
+    parser.add_argument('--aggressive', action='store_true')
+    parser.add_argument('--output_color', type=str, default='compressed_color.jpg')
+    parser.add_argument('--output_gray', type=str, default='compressed_gray.jpg')
+    return parser.parse_args()
 
-img = cv.imread(image_path, cv.IMREAD_GRAYSCALE)
-original_size = os.path.getsize(image_path)
+def compress_channel(channel, wavelet, threshold, aggressive):
+    ll, (lh, hl, hh) = pywt.dwt2(channel, wavelet)
+    if aggressive:
+        lh[:] = 0
+        hl[:] = 0
+        hh[:] = 0
+    else:
+        lh[np.abs(lh) < threshold] = 0
+        hl[np.abs(hl) < threshold] = 0
+        hh[np.abs(hh) < threshold] = 0
+    compressed_channel = pywt.idwt2((ll, (lh, hl, hh)), wavelet)
+    return np.clip(compressed_channel, 0, 255)
 
-# x , (y ,z ,w) = pywt.dwt2(img , wavelet)
-# a , (b ,c ,d) = pywt.dwt2(x , wavelet)
-ll , (lh ,hl ,hh) = pywt.dwt2(img , wavelet)
+def main():
+    args = parse_args()
+    wavelet = 'haar'
+    threshold = 10
 
-if(isAgrasive):
-    lh[:] = 0 
-    hl[:] = 0 
-    hh[:] = 0 
-else:
-    lh[np.abs(lh) < threshold] = 0 
-    hl[np.abs(hl) < threshold] = 0 
-    hh[np.abs(hh) < threshold] = 0 
+    original_size = os.path.getsize(args.image)
 
-resizeImg = pywt.idwt2((ll , (lh ,hl ,hh)) , wavelet)
+    # Color Compression 
+    img_color = cv.imread(args.image, cv.IMREAD_COLOR)
+    if img_color is None:
+        print(json.dumps({'error': 'Invalid image'}))
+        sys.exit(1)
 
-cv.imwrite("compressed_temp.png", np.uint8(resizeImg))
-resizeImg_size = os.path.getsize("compressed_temp.png")  
+    b, g, r = cv.split(img_color)
+    b_c = compress_channel(b, wavelet, threshold, args.aggressive)
+    g_c = compress_channel(g, wavelet, threshold, args.aggressive)
+    r_c = compress_channel(r, wavelet, threshold, args.aggressive)
+    compressed_color = cv.merge([b_c.astype(np.uint8), g_c.astype(np.uint8), r_c.astype(np.uint8)])
+    cv.imwrite(args.output_color, compressed_color, [cv.IMWRITE_JPEG_QUALITY, 80])
+    color_size = os.path.getsize(args.output_color)
 
-print("Original size : ", original_size / 1024, "KB")
-print("New size      : ", resizeImg_size / 1024, "KB")
-print("Compression ratio : ", original_size / resizeImg_size)
+    # Grayscale Compression 
+    img_gray = cv.imread(args.image, cv.IMREAD_GRAYSCALE)
+    gray_c = compress_channel(img_gray, wavelet, threshold, args.aggressive)
+    gray_c = gray_c.astype(np.uint8)
+    cv.imwrite(args.output_gray, gray_c, [cv.IMWRITE_JPEG_QUALITY, 80])
+    gray_size = os.path.getsize(args.output_gray)
 
-cv.namedWindow("Original Image", cv.WINDOW_NORMAL)
-cv.resizeWindow("Original Image", 600, 400)
-cv.imshow("Original Image", img)
+    result = {
+        'original_size': original_size,
+        'color': {
+            'compressed_size': color_size,
+            'compression_ratio': round(original_size / color_size, 3) if color_size else None
+        },
+        'grayscale': {
+            'compressed_size': gray_size,
+            'compression_ratio': round(original_size / gray_size, 3) if gray_size else None
+        }
+    }
 
-cv.namedWindow("Compressed Image", cv.WINDOW_NORMAL)
-cv.resizeWindow("Compressed Image", 600, 400)
-cv.imshow("Compressed Image", np.uint8(resizeImg))  
+    print(json.dumps(result))
 
-cv.waitKey(0)
-cv.destroyAllWindows()
+if __name__ == '__main__':
+    main()

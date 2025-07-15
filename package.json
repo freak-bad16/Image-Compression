@@ -1,0 +1,14 @@
+{
+  "name": "image-compression-ejs",
+  "version": "1.0.0",
+  "description": "Node.js Express backend with EJS interface for DWT image compression using Python",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "multer": "^1.4.4",
+    "ejs": "^3.1.9"
+  }
+} 
